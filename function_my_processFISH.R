@@ -59,7 +59,8 @@ my_processFISH = function(writedir, combinedImg, channelSignals, bfc = BiocFileC
     
     
     
-    FISHalyseR:::writeArguments(bgCorrMethod, channelColours, channelSignals, 
+    my_writeArguments(file.path(rootdir, "arguments.txt"),
+        bgCorrMethod, channelColours, channelSignals, 
                                 sizeNucleus, sizeProbe)
     
     key_load = digest(list(CombinedChannel, bgCorrMethod, gaussigma))
@@ -280,8 +281,11 @@ my_processFISH = function(writedir, combinedImg, channelSignals, bfc = BiocFileC
                     distMatDiff <- my_GetDistances(diff1, diff1, cellInfo[[n[i]]], 
                                                    cellInfo[[n[j]]], isOneColour = 0)
                     dMatChannels[[cname]] <- distMatDiff
-                    maxProbeDist[[cname]] <- FISHalyseR:::findProbeMaxLength(distMatDiff, 
+                    # maxProbeDist[[cname]] <- FISHalyseR:::findProbeMaxLength(distMatDiff, 
+                                                                             # 0)
+                    maxProbeDist[[cname]] <- my_findProbeMaxLength(distMatDiff, 
                                                                              0)
+                    
                     if (maxProbeDist[[cname]][1] != 0 && maxProbeDist[[cname]][2] != 
                         0) {
                         for (x in 1:maxProbeDist[[cname]][1]) {
@@ -374,6 +378,41 @@ my_processFISH = function(writedir, combinedImg, channelSignals, bfc = BiocFileC
     print(timetaken)
     
     invisible(rootdir)
+}
+
+my_writeArguments = function (fileConn, bgCorrMethod, channelColours, channelSignals, sizeNucleus, 
+                              sizeProbe) 
+{
+    string1 = "Argument list"
+    string1 = c(string1, "---- Background subtraction ----")
+    if (is.list(bgCorrMethod)) {
+        if (bgCorrMethod[[1]] == 1) {
+            string1 <- c(string1, "Multiple Gaussian blurring")
+        }
+        else if (bgCorrMethod[[1]] == 2) {
+            string1 <- c(string1, "Subtract user-specified illumination image")
+        }
+        else if (bgCorrMethod[[1]] == 3) {
+            string1 <- c(string1, "Multidimensional Illumination Correction")
+        }
+    }
+    if (is.list(channelColours) && is.list(channelSignals)) {
+        string1 = c(string1, "Probes information")
+        for (i in 1:length(channelColours)) {
+            chval <- paste(channelColours[[i]], collapse = ", ")
+            string1 = c(string1, paste(names(channelColours)[i], 
+                                       chval, channelSignals[[i]], sep = " - "))
+        }
+    }
+    string1 = c(string1, "---- Analyse Cells ----")
+    string1 = c(string1, paste("Maximum area", sizeNucleus[1], 
+                               sep = " - "), paste("Minimum area", sizeNucleus[2], sep = " - "))
+    string1 = c(string1, "---- Analyse Probes ----")
+    string1 = c(string1, paste("Maximum area", sizeProbe[1], 
+                               sep = " - "), paste("Minimum area", sizeProbe[2], sep = " - "))
+    
+    writeLines(string1, fileConn)
+    close(fileConn)
 }
 
 my_CreateOutputAreaVector = function (Channel, iCell, MaxNElements) 
