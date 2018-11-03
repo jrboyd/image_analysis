@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+PG_3
+PG_images.Rproj
+*.pdf
+exampleSampleFISH.jpg
+csv
+results_*
+tmp*
