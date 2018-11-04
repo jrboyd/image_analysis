@@ -412,7 +412,6 @@ my_writeArguments = function (fileConn, bgCorrMethod, channelColours, channelSig
                                sep = " - "), paste("Minimum area", sizeProbe[2], sep = " - "))
     
     writeLines(string1, fileConn)
-    close(fileConn)
 }
 
 my_CreateOutputAreaVector = function (Channel, iCell, MaxNElements) 
