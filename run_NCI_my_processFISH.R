@@ -31,16 +31,16 @@ bfc = BiocFileCache("~/.cache_FISH")
 g_todo = unique(mat[,4])
 f_todo = all_grps$F
 
-g_todo = g_todo[2]
-f_todo = f_todo[5:6]
+# g_todo = g_todo[2]
+# f_todo = f_todo[5:6]
 
 for(GROUP in g_todo){
     for(FIELD in f_todo){
         message(GROUP, " ", FIELD)
         base_key = paste0(GROUP, "_T0001F", FIELD, "L01")
         stopifnot(length(get_files(base_key, files)) == 42) #hardcode expected results size
-        odir = paste0("results_", GROUP, "_L", FIELD)
-        dir.create(odir, showWarnings = FALSE)
+        odir = paste0("results_pipeline_NCI_maxProjection/results_", GROUP, "_L", FIELD)
+        dir.create(odir, showWarnings = FALSE, recursive = TRUE)
         flat_fish = my_flattenFISH(writedir = odir, base_key = base_key, bfc = bfc)
         # undebug(my_processFISH)
         # debug()

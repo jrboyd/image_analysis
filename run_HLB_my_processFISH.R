@@ -17,7 +17,8 @@ source("function_my_processFISH.R")
 # 6) compare distrubutions of A-B distances per well/field
 
 # f = system.file( "extdata", "SampleFISHgray.jpg", package="FISHalyseR")
-root = file.path("~/knime-workspace/HLB_FISH/alltiff/")
+res_dir = "results_pipeline_HLB_v7"
+root = file.path("~/R/PG_images/HLB_FISH/alltiff/")
 
 files = dir(root, pattern = ".+tif", full.names = TRUE)
 tmp = strsplit(basename(files), "[_\\.]")
@@ -67,9 +68,10 @@ for(cl in all_grps$cell){
                 prb2_f = subset(grp_df, chan == "c2")$file
                 
                 
-                odir = paste("results_HLB", cl, a, b, i, sep = "_")
-                if(dir.exists(file.path("results_pipeline_HLB_v1/", odir))) next
-                dir.create(odir, showWarnings = FALSE)
+                odir = file.path(res_dir, paste(cl, a, b, i, sep = "_"))
+                
+                if(length(dir(file.path(odir, "csv/"), ".+csv") > 0)) next
+                dir.create(odir, showWarnings = FALSE, recursive = TRUE)
                 
                 flat_fish = list(
                     
@@ -77,16 +79,20 @@ for(cl in all_grps$cell){
                               nuc_f, 
                               bfc, 150),
                     
-                    make_flat(file.path(odir, paste0("flatten_", a)), 
+                    make_flat(file.path(odir, paste0("flatten_probeA_", a)), 
                               prb1_f, 
                               bfc, 20),
                     
-                    make_flat(file.path(odir, paste0("flatten_", b)), 
+                    make_flat(file.path(odir, paste0("flatten_probeB_", b)), 
                               prb2_f, 
                               bfc, 20)
                 )
                 
-                my_processFISH(writedir = odir, combinedImg = flat_fish[[1]], channelSignals = flat_fish[2:3], bfc = bfc)
+                my_processFISH(writedir = odir, 
+                               combinedImg = flat_fish[[1]], 
+                               channelSignals = flat_fish[2:3], 
+                               bfc = bfc,
+                               top_points = 30, sizeProbe = c(4, 100))
                 i = i + 1
             }
         }

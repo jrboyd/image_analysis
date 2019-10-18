@@ -1,7 +1,18 @@
+require("BiocFileCache")
 bfc = BiocFileCache("~/.cache_FISH")
 bfcif = peakrefine::bfcif
+library(digest)
 
 plot_imgN = function(imgs, nrow = NULL, ncol = NULL, pad_size = 50, dpi = 150, apply_rescale = TRUE, apply_binarize = FALSE){
+    stopifnot(length(pad_size) == 1)
+    stopifnot(length(dpi) == 1)
+    stopifnot(length(apply_rescale) == 1)
+    stopifnot(length(apply_binarize) == 1)
+    stopifnot(is.numeric(pad_size))
+    stopifnot(is.numeric(dpi) || is.na(dpi))
+    stopifnot(is.logical(apply_rescale))
+    stopifnot(is.logical(apply_binarize))
+    
     if(is.character(imgs))
         imgs = as.list(imgs)
     if(!is.list(imgs)) imgs = list(imgs)
@@ -11,8 +22,10 @@ plot_imgN = function(imgs, nrow = NULL, ncol = NULL, pad_size = 50, dpi = 150, a
         ncol = ceiling(length(imgs) / nrow)
     }
     stopifnot(nrow * ncol >= length(imgs))
+    
+    tmp_f = tempfile()
     if(!is.na(dpi)){
-        png("tmp.png", width = dev.size()[1], height = dev.size()[2], units = "in", res = dpi)
+        png(tmp_f, width = dev.size()[1], height = dev.size()[2], units = "in", res = dpi)
     }
     par(mar = rep(0, 4))
     par(bg = rgb(.2,.5,.7,1))
@@ -44,11 +57,12 @@ plot_imgN = function(imgs, nrow = NULL, ncol = NULL, pad_size = 50, dpi = 150, a
                     xleft = nc * xw + xpad, 
                     ybottom = 1 - (nr * yw - ypad + yw), 
                     xright = nc * xw - xpad + xw, 
-                    ytop = 1 - (nr * yw + ypad))
+                    ytop = 1 - (nr * yw + ypad), 
+                    interpolate = FALSE)
     }
     if(!is.na(dpi)){
         dev.off()   
-        fimg = png::readPNG("tmp.png")
+        fimg = png::readPNG(tmp_f)
         par(mar = rep(0, 4))
         par(bg = rgb(.2,.5,.7,1))
         plot(0:1, 0:1, 
@@ -56,7 +70,7 @@ plot_imgN = function(imgs, nrow = NULL, ncol = NULL, pad_size = 50, dpi = 150, a
              xaxs = "i", yaxs = "i", 
              xlab = "", ylab = "",
              type = "n")
-        rasterImage(fimg, xleft = 0, ybottom = 0, xright = 1, ytop = 1)
+        rasterImage(fimg, xleft = 0, ybottom = 0, xright = 1, ytop = 1, interpolate = FALSE)
     }
 }
 
@@ -85,7 +99,7 @@ get_files = function(key, files){
 }
 
 key_plot = function(key){
-    browser()
+    # browser()
     k = mat[,5] == key    
     tf = files[k]
     img = readImage(tf[1])
@@ -135,10 +149,22 @@ analyze_params = function(name, key, min_size, max_size, w){
     pdf(paste0(name, ".pdf"))
     zimg_files = get_files(key, files)
     
-    max_contrast = bfcif(bfc, digest::digest(list(zimg_files, w, 5, "box", 5)), function(){
-        contrastProjection(imageStack = combine_imgs(zimg_files), w_x = w, w_y = w,
-                           smoothing = 5, brushShape = "box", interpolation = 5)
-    })
+    img_combined = bfcic(
+        bfc, 
+        digest(list(zimg_files, "combining", combine_imgs)), 
+        function(){
+            combine_imgs(zimg_files)
+        }) 
+    brush = "box"
+    smoothing = 5
+    interpolation = 5
+    max_contrast = bfcif(
+        bfc, 
+        digest(list(zimg_files, w, smoothing, brush, interpolation, contrastProjection)), 
+        function(){
+            contrastProjection(imageStack = img_combined, w_x = w, w_y = w,
+                               smoothing = smoothing, brushShape = brush, interpolation = interpolation)
+        })
     cimg = combine_imgs(zimg_files)
     mimg = apply(cimg, c(1,2), max)
     plot_imgN(list(rescale(max_contrast), rescale(mimg)))
@@ -157,10 +183,22 @@ analyze_params = function(name, key, min_size, max_size, w){
 
 make_flat = function(name, zimg_files, bfc, w){
     message("flattening ", name, "...")
-    max_contrast = bfcif(bfc, digest::digest(list(zimg_files, w, 5, "box", 5)), function(){
-        contrastProjection(imageStack = combine_imgs(zimg_files), w_x = w, w_y = w,
-                           smoothing = 5, brushShape = "box", interpolation = 5)
-    })
+    # max_contrast = bfcif(bfc, digest(list(zimg_files, w, 5, "box", 5)), function(){
+    #  contrastProjection(imageStack = combine_imgs(zimg_files), w_x = w, w_y = w,
+    #                        smoothing = 5, brushShape = "box", interpolation = 5)   
+    # })
+    FUN_contrast = function(){
+        img = combine_imgs(zimg_files)
+        max_img = apply(img, MARGIN = c(1,2), max)
+        # cont_img = bfcif(bfc, digest(list(zimg_files, w, 5, "box", 5)), function(){
+        #      contrastProjection(imageStack = combine_imgs(zimg_files), w_x = w, w_y = w,
+        #                            smoothing = 5, brushShape = "box", interpolation = 5)
+        #     })
+        # plot_imgN(list(max_img, cont_img), nrow = 1, ncol = 2)
+        max_img
+    }
+    max_contrast = bfcif(bfc, 
+                         digest(list(zimg_files, "PG_maximum", FUN_contrast)), FUN_contrast, force_overwrite = FALSE)
     tiff::writeTIFF(rescale(max_contrast), paste0(name, ".tiff"))
     return(paste0(name, ".tiff"))
 }
