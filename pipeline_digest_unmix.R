@@ -4,35 +4,46 @@ library(ggplot2)
 library(hsdar)
 source("functions_plot_spectra.R")
 source("functions_qsub.R")
+### Things likely to break scripts
+# change to R environment on server
+# anything that reorders files from ascending wavelength
+# change in dimensions of images
+
 ### from nd2 to subsections of tiffs for each channel
-nd2_dim = c(5700, 5700)
+# nd2_dim = c(5700, 5700)
 step = 500
 
 input_dir = "/slipstream/home/joeboyd/data/TMA_Primary_0926_Runx2_input"
+stopifnot(file.exists(input_dir))
+ref_spec_dt_rds = file.path(getwd(), "ref_spec_4_no_bg.Rds")
+stopifnot(file.exists(ref_spec_dt_rds))
+
+
 inputs = dir(input_dir, pattern = "nd2", full.names = TRUE)
 nd2_file = inputs[1]
+stopifnot(file.exists(nd2_file))
 for(nd2_file in inputs){
-    out_dir = paste0(sub("_.+", "", basename(nd2_file)), "_unmix_v1")    
+    out_dir = file.path(dirname(input_dir), "unmixing", paste0(sub("_.+", "", basename(nd2_file)), "_unmix_v1"))
+    dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
     
-    # nd2_file = "/slipstream/home/joeboyd/data/TMA_Primary_0926_Runx2/Region0018.nd2"
-    
-    dir.create(out_dir, showWarnings = FALSE)
+    dim_str = system(paste("/slipstream/home/joeboyd/bin/showinf", nd2_file, "-nopix -no-sas | head -n 100 | awk '$0 ~ \"Width\" || $0 ~ \"Height\"'"), intern = TRUE)
+    nd2_dim = as.numeric(regmatches(dim_str, regexpr(pattern = "[0-9]+", dim_str)))
     
     log_file = file.path(out_dir, "log.txt")
     write(timestamp(suffix = " ---Start"), file = log_file)
     
-    
+    #digest files - unmix independent
     file.copy("pipeline_digest_unmix.R", out_dir)
-    
     dig_dir = file.path(out_dir, "digest")
-    unmix_dir = file.path(out_dir, "digest_unmixed")
-    
     assembled_raw_dir = file.path(out_dir, "assembly_raw")
-    assembled_unmix_dir = file.path(out_dir, "assembly_unmixed")
-    
     max_dir = file.path(out_dir, "max_values")
+    #unmix files
+    unmix_dir = file.path(out_dir, "unmixed_signal4")
+    file.copy(ref_spec_dt_rds, file.path(unmix_dir, "ummix_spectra_used.Rds"))
+    assembled_unmix_dir = file.path(out_dir, "assembly_signal4")
+  
     
-    one_pass_unmix_dir = file.path(out_dir, "one_pass_umixed")
+    # one_pass_unmix_dir = file.path(out_dir, "one_pass_umixed")
     
     message("Digesting large tiffs")
     write(timestamp(suffix = " ---Begin Digest"), file = log_file, append = TRUE)
@@ -42,25 +53,25 @@ for(nd2_file in inputs){
         dir.create(dig_dir)
         base_cmd = "/slipstream/home/joeboyd/bin/bfconvert -crop CROP_AREA IN_FILE OUT_PREFIX.Z%z_T%t_%wnm.tiff"
         
-        xs = c(1, step)
-        ys = c(1, step)
+        xs = c(0, step)
+        ys = c(0, step)
         
         wrap_x = TRUE
         wrap_y = TRUE
         cmds = character()
         while(wrap_x){
             if(max(xs) > nd2_dim[1]){
-                xs[2] = nd2_dim[1]
+                xs[2] = nd2_dim[1]-1
                 wrap_x = FALSE
             }
             # message(xs[1], "-", xs[2])
             while(wrap_y){
                 if(max(ys) > nd2_dim[2]){
-                    ys[2] = nd2_dim[2]
+                    ys[2] = nd2_dim[2]-1
                     wrap_y = FALSE
                 }
                 # message("---", ys[1], "-", ys[2])
-                crop_str = paste(min(xs), min(ys), diff(xs)+1, diff(ys)+1, sep = ",")
+                crop_str = paste(min(xs), min(ys), diff(xs), diff(ys), sep = ",")
                 cmd = base_cmd
                 cmd = sub("CROP_AREA", crop_str, cmd)
                 cmd = sub("IN_FILE", nd2_file, cmd)
@@ -69,7 +80,7 @@ for(nd2_file in inputs){
                 cmds = c(cmds, cmd_sub)
                 ys = ys + step
             }
-            ys = c(1, step)
+            ys = c(0, step)
             wrap_y = TRUE
             xs = xs + step
         }
@@ -87,11 +98,12 @@ for(nd2_file in inputs){
     
     
     message("Finding global maximum")
-    write(timestamp(suffix = " ---Begin Find Max"), file = log_file, append = TRUE)
+
     if(dir.exists(max_dir)){
+        write(paste0("directory exists! ", max_dir, "\ndelete and rerun."), file = log_file, append = TRUE)
         message("directory exists! ", max_dir, "\ndelete and rerun.")
     }else{
-        
+        write(timestamp(suffix = " ---Begin Find Max"), file = log_file, append = TRUE)
         dir.create(max_dir)
         roots = dir(dig_dir, full.names = TRUE) %>% basename %>% sub("\\..+", "", .) %>% unique
         
@@ -114,21 +126,22 @@ for(nd2_file in inputs){
             # cmd_sub = paste0('qsub -e /dev/null -o /dev/null -v PATH=$PATH ~/scripts/run_cmd.sh "', cmd, '"')
             
         }
-        qsub_and_wait(cmds)
+        qsub_and_wait(
+            
+        )
+        write(timestamp(suffix = " ---End Find Max"), file = log_file, append = TRUE)
     }
-    write(timestamp(suffix = " ---End Find Max"), file = log_file, append = TRUE)
-    
-    
-    
     
     max_files = dir(max_dir, pattern = "_max.txt", full.names = TRUE)
     max_val = sapply(max_files, readLines) %>% as.numeric %>% max
     
     message("Unmixing")
-    write(timestamp(suffix = " ---Begin Unmix"), file = log_file, append = TRUE)
+    
     if(dir.exists(unmix_dir)){
+        write(paste0("directory exists! ", unmix_dir, "\ndelete and rerun."))
         message("directory exists! ", unmix_dir, "\ndelete and rerun.")
     }else{
+        write(timestamp(suffix = " ---Begin Unmix"), file = log_file, append = TRUE)
         dir.create(unmix_dir)
         roots = dir(dig_dir, full.names = TRUE) %>% basename %>% sub("\\..+", "", .) %>% unique
         
@@ -142,21 +155,20 @@ for(nd2_file in inputs){
             root = sub("\\..+", "", basename(spec_files[1]))
             if(length(spec_files) < 1)stop("no spec_files")
             #NEED TO CALCULATE VAL MAX AND SUPPLY
-            cmd = paste("Rscript rscript_unmix.R", paste(c(unmix_dir, root, as.character(max_val), spec_files), collapse = " "))
+            cmd = paste("Rscript rscript_unmix.R", paste(c(unmix_dir, root, as.character(max_val), ref_spec_dt_rds, spec_files), collapse = " "))
             cmd_sub = paste0('qsub -e /dev/null -o /dev/null -q slipstream_queue@cn-t630 -v PATH=$PATH ~/scripts/run_cmd.sh "', cmd, '"')
             cmds = c(cmds, cmd_sub)
         }
         file.copy("rscript_unmix.R", file.path(unmix_dir, "rscript_unmix.R"))
         qsub_and_wait(cmds)
+        write(timestamp(suffix = " ---End Unmix"), file = log_file, append = TRUE)
     }
-    write(timestamp(suffix = " ---End Unmix"), file = log_file, append = TRUE)
-    system("qstat | head")
-    system("qstat | wc -l")
     
     # if(F){
     message("Reassembling digests")
     cmds = character()
-    if(dir.exists(assembled_unmix_dir)){
+    if(F){#dir.exists(assembled_unmix_dir)){
+        write(paste0("directory exists! ", assembled_unmix_dir, "\ndelete and rerun."))
         message("directory exists! ", assembled_unmix_dir, "\ndelete and rerun.")
     }else{
         dir.create(assembled_unmix_dir)
@@ -202,7 +214,8 @@ for(nd2_file in inputs){
     
     # if(F){
     message("Reassembling raw digests")
-    if(dir.exists(assembled_raw_dir)){
+    if(F){#dir.exists(assembled_raw_dir)){
+        write(paste0("directory exists! ", assembled_raw_dir, "\ndelete and rerun."))
         message("directory exists! ", assembled_raw_dir, "\ndelete and rerun.")
     }else{
         dir.create(assembled_raw_dir)
@@ -247,12 +260,15 @@ for(nd2_file in inputs){
         }
     }
     
-    write(timestamp(suffix = " ---Begin Restitch"), file = log_file, append = TRUE)
-    if(length(cmds) > 0){
+    
+    if(length(cmds) == 0){
+        
+    }else{
+        write(timestamp(suffix = " ---Begin Restitch"), file = log_file, append = TRUE)
         file.copy("rscript_restitch.R", file.path(unmix_dir, "rscript_restitch.R"))
         qsub_and_wait(cmds)
+        write(timestamp(suffix = " ---End Restitch"), file = log_file, append = TRUE)
     }
-    write(timestamp(suffix = " ---End Restitch"), file = log_file, append = TRUE)
     write(timestamp(suffix = " ---Stop"), file = log_file, append = TRUE)
 }
 # if(dir.exists(one_pass_unmix_dir)){

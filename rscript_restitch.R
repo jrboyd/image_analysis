@@ -1,7 +1,6 @@
 #!/usr/bin/env Rscript
 library(magrittr)
 library(data.table)
-library(hsdar)
 setDTthreads(threads = 1)
 args = commandArgs(trailingOnly=TRUE)
 out_tiff = args[1]
@@ -13,12 +12,12 @@ stitch_regions =  regmatches(basename(stitch_files),
                                      perl = TRUE))
 reg_dt = data.table(id = stitch_regions)
 reg_dt[, c("xmin", "ymin", "width", "height") := tstrsplit(id, "_")]
-reg_dt$xmin = as.numeric(reg_dt$xmin)
-reg_dt$ymin = as.numeric(reg_dt$ymin)
+reg_dt$xmin = as.numeric(reg_dt$xmin) + 1
+reg_dt$ymin = as.numeric(reg_dt$ymin) + 1
 reg_dt$width = as.numeric(reg_dt$width)
 reg_dt$height = as.numeric(reg_dt$height)
-w = reg_dt[, max(xmin + width -1)]
-h = reg_dt[, max(ymin + height -1)]
+w = reg_dt[, max(xmin + width )]
+h = reg_dt[, max(ymin + height )]
 tiff_mat = matrix(0, ncol = w, nrow = h)
 for(i in seq_along(stitch_files)){
     xs = seq(reg_dt$xmin[i], reg_dt$xmin[i] + reg_dt$width[i] - 1)

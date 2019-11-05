@@ -7,37 +7,17 @@ args = commandArgs(trailingOnly=TRUE)
 stitch_dir = args[1]
 root = args[2]
 val_max = as.numeric(args[3])
-spec_files = args[-1:-3]
+refspec_dt = readRDS(args[4])
+spec_files = args[-1:-4]
 # message(system("which R", intern = TRUE))
 # message(paste(spec_files, collapse = "\n"))
 
 #load ref spectra
-refspec_files = dir("~/data/spectra/", pattern = ".txt$", full.names = TRUE)
-names(refspec_files) = refspec_files %>% basename %>% sub(" ", "_", .)  %>% sub("\\.txt", "", .)
-refspec_files= refspec_files[names(refspec_files) != "Opal_570 09_20"]
-refspec_dt = lapply(refspec_files, fread) %>% rbindlist(., use.names = TRUE, idcol = "file")
-refspec_dt$res = NULL
+refspec_dt.wide = dcast(refspec_dt, name~wl, value.var = "em")
 
-refspec_dt[, n5 := round((wl - 5) / 10) * 10 + 5]
-refspec_dt = unique(refspec_dt[, .(file, wl = n5, em)])
-
-refspec_dt
-#manually override RBC bg
-rbc_override = readRDS("RBC_spectra_manual_override.Rds")
-refspec_dt = refspec_dt[file != "Red_blood cell background"]
-refspec_dt = rbind(refspec_dt, rbc_override[, .(file, wl, em = value)])
-if(FALSE){
-    ggplot(refspec_dt, aes(x = wl, y = em, color = file)) + geom_path() +
-        facet_wrap(~file)
-}
-
-refspec_dt.wide = dcast(refspec_dt, file~wl, value.var = "em")
-file2name = data.table(file = refspec_dt.wide$file)
-file2name$name = c("background", "MANCR", "tp63", "Runx2", "RBC", "Dapi")
-refspec_dt.wide = merge(file2name, refspec_dt.wide, by = "file")
-refspec_dt.wide$file = NULL
 refspec_mat = as.matrix(refspec_dt.wide[,-1])
 rownames(refspec_mat) = refspec_dt.wide$name
+ggplot(refspec_dt, aes(x = wl, y = em)) + geom_path() + facet_wrap(~file)
 
 #load spectra tiffs
 rres = regexpr("(?<=_)[0-9]{3}(?=nm)", spec_files, perl = TRUE)
