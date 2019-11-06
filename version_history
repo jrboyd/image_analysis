@@ -1,0 +1,21 @@
+# V6 
+* signal weighted centroid-centroid distance measurement
+* added angle calc
+
+# V5 probe_size = 4-100 and top_points = 30
+
+# V4 (V3 is better)probe_size 10-30 and top_points = 40
+
+# V3 (very good NCI performance, .8-.9, better HLB ~.5)
+* Maximal projection
+* set number of pixels per nuclei for spot thresholding vs quantile method (nuclei size impacts)
+
+# V2
+* per nuclei probe spot thresholding
+* overlay image
+
+# V1
+* pipeline runs - mostly edge case handling
+
+
+

@@ -17,7 +17,7 @@ refspec_dt.wide = dcast(refspec_dt, name~wl, value.var = "em")
 
 refspec_mat = as.matrix(refspec_dt.wide[,-1])
 rownames(refspec_mat) = refspec_dt.wide$name
-ggplot(refspec_dt, aes(x = wl, y = em)) + geom_path() + facet_wrap(~file)
+ggplot(refspec_dt, aes(x = wl, y = em)) + geom_path() + facet_wrap(~name)
 
 #load spectra tiffs
 rres = regexpr("(?<=_)[0-9]{3}(?=nm)", spec_files, perl = TRUE)

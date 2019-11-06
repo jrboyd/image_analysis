@@ -22,7 +22,9 @@ tiff_mat = matrix(0, ncol = w, nrow = h)
 for(i in seq_along(stitch_files)){
     xs = seq(reg_dt$xmin[i], reg_dt$xmin[i] + reg_dt$width[i] - 1)
     ys = seq(reg_dt$ymin[i], reg_dt$ymin[i] + reg_dt$height[i] - 1)
-    tiff_mat[ys, xs] = tiff::readTIFF(stitch_files[i])
+    raw_mat = tiff::readTIFF(stitch_files[i])
+    raw_mat = apply(raw_mat, 1:2, max)
+    tiff_mat[ys, xs] = raw_mat
 }
 # tiff_mat = t(tiff_mat)
 # range(tiff_mat)
