@@ -16,3 +16,5 @@ HLB_FISH
 NCI_imaging
 ROI_global.png
 data
+.cache_paralell
+*.sh.*

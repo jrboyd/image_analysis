@@ -1,9 +1,26 @@
-###setup, changing these two filepaths should be all that is required.
+###setup, changing these 3 filepaths should be all that is required.
 #set input directory that contains nd2 files
-input_dir = "/slipstream/home/scope_user/data/TMA_Primary_0926_Runx2_input"
-#set path to spectra file.  first column is reference spectra name ("Dapi" etc).  One column per wavelength. One row per reference.
+# input_dir = "/slipstream/home/scope_user/data/TMA_Primary_0926_Runx2_input"
+input_dir = "/slipstream/home/scope_user/data/my_nd2_1"
+#by default, all outputs will appear in the same directory where input_dir is located
+#in a folder named below.
+output_root_dir = file.path(dirname(input_dir), paste0(basename(input_dir), "_unmixing3"))
+dir.create(output_root_dir, showWarnings = FALSE)
+#if you need to 
+qsub_logging = TRUE
+if(qsub_logging){
+  QSUB_CMD = "qsub"  
+}else{
+  QSUB_CMD = "qsub -e /dev/null -o /dev/null"
+}
+
+#set path to spectra file.  first column is reference spectra name 
+#("Dapi" etc).  One column per wavelength. One row per reference.
 #first column must be called "name".
 spectra_csv = "ref_spec_4_no_bg.csv"
+###IMPORTANT - anytime reference spectra change you should 
+#change the output_root_dir or results will not update.
+
 #tiffs will be digests in step x step bites, should be no need to change this.
 step = 500
 
@@ -37,15 +54,9 @@ inputs = dir(input_dir, pattern = "nd2", full.names = TRUE)
 nd2_file = inputs[1]
 stopifnot(file.exists(nd2_file))
 
-output_root_dir = file.path(dirname(input_dir), "unmixing3")
-dir.create(output_root_dir, showWarnings = FALSE)
 
-qsub_logging = FALSE
-if(qsub_logging){
-  QSUB_CMD = "qsub"  
-}else{
-  QSUB_CMD = "qsub -e /dev/null -o /dev/null"
-}
+
+
 
 nd2_file = inputs[1]
 for(nd2_file in inputs){
